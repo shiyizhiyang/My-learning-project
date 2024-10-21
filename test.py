@@ -161,22 +161,10 @@ class CustomInvestmentStrategy:
         self.status.to_csv('investment_status.csv', index=False)  # 导出为 CSV 文件
 
         # 绘制盈利率、现金流和总盈利率变化图表
-        self.plot_profit_rate()
         self.plot_cash_flow()
         self.visualize_table()
-        self.plot_total_profit_rate()  # 绘制总盈利率变化图表
 
-    def plot_profit_rate(self):
-        plt.figure(figsize=(12, 6))
-        plt.plot(self.status['date'], self.status['profit_rate'], marker='o', linestyle='-')
-        plt.title('Profit Rate Change')
-        plt.xlabel('Date')
-        plt.ylabel('Profit Rate (%)')
-        plt.grid()
-        plt.xticks(rotation=45)
-        plt.tight_layout()
-        plt.savefig('profit_rate_change.png')  # 保存为图像文件
-        plt.show()
+
 
     def plot_cash_flow(self):
         plt.figure(figsize=(12, 6))
@@ -205,17 +193,6 @@ class CustomInvestmentStrategy:
         plt.xticks(rotation=45)
         plt.tight_layout()
         plt.savefig('cash_flow_change.png')  # 保存为图像文件
-        plt.show()
-    def plot_total_profit_rate(self):
-        plt.figure(figsize=(12, 6))
-        plt.plot(self.status['date'], self.status['profit_rate'], marker='o', linestyle='-', color='green')
-        plt.title('Total Profit Rate Change Over Time')
-        plt.xlabel('Date')
-        plt.ylabel('Total Profit Rate (%)')
-        plt.grid()
-        plt.xticks(rotation=45)
-        plt.tight_layout()
-        plt.savefig('total_profit_rate_change.png')  # 保存为图像文件
         plt.show()
 
     def visualize_table(self):
