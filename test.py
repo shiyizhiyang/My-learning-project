@@ -74,6 +74,7 @@ class CustomInvestmentStrategy:
         #remaining_months =  max_recovery_months
 
         # 开始投资模拟
+        monthly_investment = self.total_investment / max_recovery_months
         for date in times:
             # 计算从上一次投资到当前日期的天数
             days_diff = (date - self.last_investment_date).days
@@ -96,12 +97,20 @@ class CustomInvestmentStrategy:
             if last_sell_month == (current_year, current_month):
                 continue  # 如果已经卖出，则跳过买入
 
-            # 计算当前每月固定投资金额
-            monthly_investment = self.total_investment / max_recovery_months
-
-            # 每月固定投资金额
+            # 计算当前每月可变投资金额
+            if self.last_price is not None:
+                price_change = (price - self.last_price)/self.last_price
+                if price_change > 0:
+                    monthly_investment /= (1 + price_change)  # 上涨减少每月投资金额
+                    #monthly_investment = monthly_investment 
+                else :
+                    monthly_investment *= (1 - 2*price_change)  # 下跌增加每月投资金额
+            else:
+                price_change = 0
+            
             self.holding += monthly_investment / price  # 购买基金单位
             self.cash -= monthly_investment  # 减少现金
+            print(f"在 {date.date()} 买入，每月投资金额: {monthly_investment:.2f}, 现金: {self.cash:.2f}, 价格变化幅度: {price_change:.2%}")
             # 更新持仓成本
             self.holding_cost += monthly_investment  # 累加当前买入的成本
 
@@ -114,25 +123,26 @@ class CustomInvestmentStrategy:
 
             # 根据当前持仓的收益涨幅进行卖出判断
             if holding_gain_percentage > 10:
-                sell_amount = self.holding 
-                self.cash += sell_amount * price
-                self.holding -= sell_amount
-                # 更新持仓成本
-                #self.holding_cost -= (sell_amount * price) / self.holding  # 更新持仓成本（按比例分配）
-                self.holding_cost = 0  # 更新持仓成本（按比例分配）
-                last_sell_month = (current_year, current_month)  # 更新上一个卖出月份
-                print(f"在 {date.date()} 卖出一半，持仓: {self.holding}, 现金: {self.cash}")
-
-            elif holding_gain_percentage > 5:
-                sell_amount = self.holding / 2
+                sell_amount = self.holding /2
                 self.cash += sell_amount * price
                 self.holding -= sell_amount
                 # 更新持仓成本
                 #self.holding_cost -= (sell_amount * price) / self.holding  # 更新持仓成本（按比例分配）
                 self.holding_cost *= 1/2  # 更新持仓成本（按比例分配）
                 last_sell_month = (current_year, current_month)  # 更新上一个卖出月份
-                print(f"在 {date.date()} 卖出三分之一，持仓: {self.holding}, 现金: {self.cash}")
+                monthly_investment = self.total_investment / max_recovery_months  # 重新计算每月投资金额
+                print(f"在 {date.date()} 卖出一半，持仓: {self.holding}, 现金: {self.cash}")
 
+            elif holding_gain_percentage > 5:
+                sell_amount = self.holding / 3
+                self.cash += sell_amount * price
+                self.holding -= sell_amount
+                # 更新持仓成本
+                #self.holding_cost -= (sell_amount * price) / self.holding  # 更新持仓成本（按比例分配）
+                self.holding_cost *= 2/3  # 更新持仓成本（按比例分配）
+                last_sell_month = (current_year, current_month)  # 更新上一个卖出月份
+                print(f"在 {date.date()} 卖出三分之一，持仓: {self.holding}, 现金: {self.cash}")
+                monthly_investment = self.total_investment / max_recovery_months  # 重新计算每月投资金额
             self.last_price = price
             self.last_investment_date = date  # 更新最后投资日期
 
@@ -174,10 +184,7 @@ class CustomInvestmentStrategy:
         
         # 一次性买入后的总价值
         one_time_investment_value = self.total_investment * (self.status['price'] / self.status['price'].iloc[0])  # 假设一次性买入在开始时的价格
-        
-
-
-        
+    
         # 绘制图表
         plt.plot(self.status['date'], self.status['cash_growth_without_investment'], label='Cash (without Investment)', color='red', linestyle='--')  # 只绘制不投资的现金增长
         plt.plot(self.status['date'], self.status['cash'], label='Cash (with Interest)', color='blue')
@@ -215,7 +222,7 @@ class CustomInvestmentStrategy:
 
 # 使用自定义策略
 fund_code = '000369'  # 替换为实际基金代码
-start_date = '2016-01-01'
+start_date = '2014-01-01'
 end_date = '2023-12-31'  # 新增结束日期
 total_investment = 10000  # 总投资金额
 
