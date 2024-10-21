@@ -8,13 +8,15 @@ class CustomInvestmentStrategy:
         self.start_date = start_date
         self.end_date = end_date
         self.total_investment = total_investment
+        self.cash_growth_without_investment = total_investment
         self.investment_frequency = investment_frequency
         self.status = []
         self.holding = 0
         self.cash = total_investment
         self.last_price = None
         self.holding_cost = 0  # 当前持仓的成本
-        
+        self.daily_interest_rate = 0.0001  # 银行每日利率 0.01%
+        self.last_investment_date = pd.to_datetime(start_date)  # 上一次投资日期
         # 获取基金数据
         self.fund_data = xa.fundinfo(fund_code)
         self.get_price_data()
@@ -47,6 +49,7 @@ class CustomInvestmentStrategy:
         current_recovery_months = 0  # 当前回升月份计数
 
         for date in times:
+            
             price_row = self.price_data[self.price_data['date'] == date]
 
             if not price_row.empty:
@@ -72,6 +75,12 @@ class CustomInvestmentStrategy:
 
         # 开始投资模拟
         for date in times:
+            # 计算从上一次投资到当前日期的天数
+            days_diff = (date - self.last_investment_date).days
+            
+            # 更新现金的增长
+            self.cash *= (1 + self.daily_interest_rate) ** days_diff
+            self.cash_growth_without_investment = self.cash_growth_without_investment * (1 + self.daily_interest_rate) ** days_diff
             price_row = self.price_data[self.price_data['date'] == date]
 
             if not price_row.empty:
@@ -125,11 +134,18 @@ class CustomInvestmentStrategy:
                 print(f"在 {date.date()} 卖出三分之一，持仓: {self.holding}, 现金: {self.cash}")
 
             self.last_price = price
+            self.last_investment_date = date  # 更新最后投资日期
 
             # 记录状态
             total_value = self.cash + self.holding * price
-            self.status.append({'date': date, 'price': price, 'holding': self.holding,
-                                'cash': self.cash, 'total_value': total_value})
+            self.status.append({
+            'date': date, 
+            'price': price, 
+            'holding': self.holding,
+            'cash': self.cash, 
+            'cash_growth_without_investment': self.cash_growth_without_investment,  # 添加这一行
+            'total_value': total_value
+        })
 
             # 每次投资后减少剩余月份
             #remaining_months -= 1
@@ -170,12 +186,17 @@ class CustomInvestmentStrategy:
         
         # 一次性买入后的总价值
         one_time_investment_value = self.total_investment * (self.status['price'] / self.status['price'].iloc[0])  # 假设一次性买入在开始时的价格
+        
 
-        plt.plot(self.status['date'], self.status['cash'], label='Cash', color='blue')
+
+        
+        # 绘制图表
+        plt.plot(self.status['date'], self.status['cash_growth_without_investment'], label='Cash (without Investment)', color='red', linestyle='--')  # 只绘制不投资的现金增长
+        plt.plot(self.status['date'], self.status['cash'], label='Cash (with Interest)', color='blue')
         plt.plot(self.status['date'], self.status['holding'] * self.status['price'], label='Holding Value', color='orange')
         plt.plot(self.status['date'], total_value, label='Total Value', color='green', linestyle='--')  # 添加总资金曲线
-        plt.plot(self.status['date'], one_time_investment_value, label='One-time Investment Value', color='red', linestyle='-.')  # 添加一次性买入后的总价值曲线
-        
+        plt.plot(self.status['date'], one_time_investment_value, label='One-time Investment Value', color='purple', linestyle=':')  # 添加一次性买入后的总价值曲线
+
         plt.title('Cash Flow, Holding Value, and One-time Investment Value Change')
         plt.xlabel('Date')
         plt.ylabel('Amount (Currency)')
@@ -185,7 +206,6 @@ class CustomInvestmentStrategy:
         plt.tight_layout()
         plt.savefig('cash_flow_change.png')  # 保存为图像文件
         plt.show()
-
     def plot_total_profit_rate(self):
         plt.figure(figsize=(12, 6))
         plt.plot(self.status['date'], self.status['profit_rate'], marker='o', linestyle='-', color='green')
