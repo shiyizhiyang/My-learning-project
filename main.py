@@ -3,7 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 class CustomInvestmentStrategy:
-    def __init__(self, fund_code, start_date, end_date, total_investment, investment_frequency='M'):
+    def __init__(self, fund_code, start_date, end_date, total_investment, investment_frequency):
         self.fund_code = fund_code
         self.start_date = start_date
         self.end_date = end_date
@@ -15,8 +15,9 @@ class CustomInvestmentStrategy:
         self.cash = total_investment
         self.last_price = None
         self.holding_cost = 0  # 当前持仓的成本
-        self.daily_interest_rate = 0.0001  # 银行每日利率 0.01%
+        self.daily_interest_rate = 0.0001337  # 银行每年增长5%
         self.last_investment_date = pd.to_datetime(start_date)  # 上一次投资日期
+
         # 获取基金数据
         self.fund_data = xa.fundinfo(fund_code)
         self.get_price_data()
@@ -39,34 +40,26 @@ class CustomInvestmentStrategy:
 
         # 使用结束日期生成日期范围
         times = pd.date_range(start=self.start_date, end=self.end_date, freq=self.investment_frequency)
-
-        # 记录上一个卖出的月份
-        last_sell_month = None
+        print(times)
         
         # 计算最大回升月份数
         max_price = 0  # 记录基金的最高净值
         max_recovery_months = 0  # 记录最大回升月份数
         current_recovery_months = 0  # 当前回升月份计数
-
         for date in times:
-            
             price_row = self.price_data[self.price_data['date'] == date]
-
             if not price_row.empty:
                 price = price_row['netvalue'].values[0]  # 使用净值
             else:
                 continue
-
             # 更新基金的最高净值
             if price > max_price:
                 max_price = price
                 current_recovery_months = 0  # 重置回升计数
             else:
                 current_recovery_months += 1  # 增加回升月份计数
-
             # 更新最大回升月份数
             max_recovery_months = max(max_recovery_months, current_recovery_months)
-
         # 打印最大回升月份数
         print(f"最大回升月份数: {max_recovery_months}")
 
@@ -75,38 +68,34 @@ class CustomInvestmentStrategy:
 
         # 开始投资模拟
         monthly_investment = self.total_investment / max_recovery_months 
-        monthly_investment = monthly_investment * 0.2 # 增加每月初始投资金额来增加波动进而增加收益
+        monthly_investment = monthly_investment * 1.5 # 增加每月初始投资金额来增加波动进而增加收益
         monthly_investment_initial = monthly_investment
+        
         for date in times:
             # 计算从上一次投资到当前日期的天数
             days_diff = (date - self.last_investment_date).days
             
             # 更新现金的增长
             self.cash *= (1 + self.daily_interest_rate) ** days_diff
-            self.cash_growth_without_investment = self.cash_growth_without_investment * (1 + self.daily_interest_rate) ** days_diff
+            self.cash_growth_without_investment *=  (1 + self.daily_interest_rate) ** days_diff
+            #print(f"date: {date} , cash_growth_without_investment: {self.cash_growth_without_investment}")
+            #print(f"last_investment_date: {self.last_investment_date}")
             price_row = self.price_data[self.price_data['date'] == date]
-
+            self.last_investment_date = date  # 更新最后投资日期
             if not price_row.empty:
                 price = price_row['netvalue'].values[0]  # 使用净值
             else:
                 continue
 
-            # 获取当前月份
-            current_month = date.month
-            current_year = date.year
-
-            # 检查是否在当月已经卖出
-            if last_sell_month == (current_year, current_month):
-                continue  # 如果已经卖出，则跳过买入
-
             # 计算当前每月可变投资金额
             if self.last_price is not None:
                 price_change = (price - self.last_price)/self.last_price
                 if price_change > 0:
-                    monthly_investment /= (1 + 300*price_change)  # 上涨减少每月投资金额
+                    monthly_investment /= (1 + 5*price_change)  # 上涨减少每月投资金额
                     #monthly_investment = monthly_investment 
                 else :
-                    monthly_investment *= (1 - 200*price_change)  # 下跌增加每月投资金额
+                    monthly_investment *= (1 - 5*price_change)  # 下跌增加每月投资金额
+                   #monthly_investment = monthly_investment 
             else:
                 price_change = 0
             
@@ -123,40 +112,28 @@ class CustomInvestmentStrategy:
                 if self.holding_cost > 0 else 0
             )
 
-            # 根据当前持仓的收益涨幅进行卖出判断
+            #根据当前持仓的收益涨幅进行卖出判断
             if holding_gain_percentage > 10:
-                sell_amount = self.holding  /2
+                sell_amount = self.holding /2
                 self.cash += sell_amount * price
                 self.holding -= sell_amount
                 # 更新持仓成本
                 #self.holding_cost -= (sell_amount * price) / self.holding  # 更新持仓成本（按比例分配）
                 self.holding_cost *= 1/2 # 更新持仓成本（按比例分配）
-                last_sell_month = (current_year, current_month)  # 更新上一个卖出月份
                 monthly_investment = monthly_investment_initial  # 重新计算每月投资金额
                 print(f"在 {date.date()} 全部卖出，持仓: {self.holding}, 现金: {self.cash}")
-            elif holding_gain_percentage > 8:
-                sell_amount = self.holding /3
+
+
+            elif holding_gain_percentage > 5:
+                sell_amount = self.holding / 3
                 self.cash += sell_amount * price
                 self.holding -= sell_amount
                 # 更新持仓成本
                 #self.holding_cost -= (sell_amount * price) / self.holding  # 更新持仓成本（按比例分配）
                 self.holding_cost *= 2/3  # 更新持仓成本（按比例分配）
-                last_sell_month = (current_year, current_month)  # 更新上一个卖出月份
-                monthly_investment = monthly_investment_initial  # 重新计算每月投资金额
-                print(f"在 {date.date()} 卖出一半，持仓: {self.holding}, 现金: {self.cash}")
-
-            elif holding_gain_percentage > 5:
-                sell_amount = self.holding / 4
-                self.cash += sell_amount * price
-                self.holding -= sell_amount
-                # 更新持仓成本
-                #self.holding_cost -= (sell_amount * price) / self.holding  # 更新持仓成本（按比例分配）
-                self.holding_cost *= 3/4  # 更新持仓成本（按比例分配）
-                last_sell_month = (current_year, current_month)  # 更新上一个卖出月份
                 print(f"在 {date.date()} 卖出三分之一，持仓: {self.holding}, 现金: {self.cash}")
                 monthly_investment = monthly_investment_initial  # 重新计算每月投资金额
             self.last_price = price
-            self.last_investment_date = date  # 更新最后投资日期
 
             # 记录状态
             total_value = self.cash + self.holding * price
@@ -235,8 +212,9 @@ class CustomInvestmentStrategy:
 # 使用自定义策略
 fund_code = '000369'  # 替换为实际基金代码
 start_date = '2014-01-01'
-end_date = '2023-12-31'  # 新增结束日期
+end_date = '2024-01-01'  # 新增结束日期
 total_investment = 10000  # 总投资金额
+investment_frequency = 'MS'
 
-strategy = CustomInvestmentStrategy(fund_code, start_date, end_date, total_investment)
+strategy = CustomInvestmentStrategy(fund_code, start_date, end_date, total_investment,investment_frequency)
 strategy.simulate()
