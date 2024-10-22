@@ -90,10 +90,10 @@ class CustomInvestmentStrategy:
             if self.last_price is not None:
                 price_change = (price - self.last_price)/self.last_price
                 if price_change > 0:
-                    monthly_investment /= (1 + 5*price_change)  # 上涨减少每月投资金额
+                    monthly_investment /= (1 + 3*price_change)  # 上涨减少每月投资金额
                     #monthly_investment = monthly_investment 
                 else :
-                    monthly_investment *= (1 - 5*price_change)  # 下跌增加每月投资金额
+                    monthly_investment *= (1 - 3*price_change)  # 下跌增加每月投资金额
                    #monthly_investment = monthly_investment 
             else:
                 price_change = 0
